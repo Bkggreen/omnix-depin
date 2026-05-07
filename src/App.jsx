@@ -1,152 +1,461 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  Activity, Cpu, Database, Globe, Zap, Shield, DollarSign,
-  Radio, Bot, Play, Square, Wifi, BarChart3, Users, TrendingUp,
-  RefreshCw, CheckCircle2, AlertTriangle, Star
-} from "lucide-react";
-import {
-  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
-  XAxis, YAxis, Tooltip, ResponsiveContainer
-} from "recharts";
+import { useState, useEffect, useRef, useCallback } from "react";
 
-const TABS = [
-  { id: "overview",  label: "Overview",  Icon: Globe },
-  { id: "node",      label: "My Node",   Icon: Cpu },
-  { id: "agent",     label: "AI Agent",  Icon: Bot },
-  { id: "earnings",  label: "Earnings",  Icon: DollarSign },
-  { id: "social",    label: "Social",    Icon: Radio },
-];
+// ─────────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────────
+const API = "http://165.232.41.239:3001";
+const LOGO = "/omnix-logo.jpg"; // Upload omnix-logo.jpg to your GitHub public/ folder
 
-const LOG_POOL = [
-  { type: "slash",   icon: "⚡", msg: "Node #3341 slashed — repeated coverage fraud (−500 $OMX stake burned)" },
-  { type: "social",  icon: "📣", msg: "Posted to @OmnixProtocol: 'Epoch 847 rewards up 23%' — 12.4K impressions" },
-  { type: "pool",    icon: "⚖️", msg: "Reward pool rebalanced: compute +8%, storage −3%, bandwidth −5%" },
-  { type: "recruit", icon: "🤝", msg: "Recruited 17 new node operators via X DM targeting campaign" },
-  { type: "reward",  icon: "💰", msg: "Distributed 52,410 $OMX to 1,024 active operators — epoch 847 complete" },
-  { type: "social",  icon: "📸", msg: "Instagram post: ecosystem infographic — 6.1K reach, 847 saves, 234 shares" },
-  { type: "action",  icon: "🌐", msg: "New region activated: Sub-Saharan Africa — 31 nodes onboarded successfully" },
-  { type: "action",  icon: "🤖", msg: "AI batch: 1,847 inference tasks completed — 14.3 $OMX distributed to nodes" },
-  { type: "pool",    icon: "🔄", msg: "Auto-compounded rewards for 2,847 stakers — $103,441 total compounded" },
-  { type: "action",  icon: "🔍", msg: "Audit complete: 847 nodes checked — 3 flagged, 1 slashed, 2 on probation" },
-  { type: "social",  icon: "📈", msg: "Trending #DePIN on X — boosted 14 posts, gained 2,340 new followers today" },
-  { type: "action",  icon: "💎", msg: "Epoch 848 started — reward multiplier 1.31x, base rate 0.04 $OMX/hr/node" },
-  { type: "recruit", icon: "🛡️", msg: "Deployed anti-Sybil v2.4 — 23 fake node clusters detected and removed" },
-  { type: "action",  icon: "🔧", msg: "Bandwidth routes optimized: SEA cluster latency reduced by 18ms average" },
-  { type: "reward",  icon: "✨", msg: "Top performer bonus: Node #247 awarded 120 $OMX for 100% uptime streak" },
-];
-
-const EARNINGS_DATA = [
-  { day: "Mon", coverage: 8.2,  compute: 11.4, bandwidth: 4.1, tasks: 2.8 },
-  { day: "Tue", coverage: 9.1,  compute: 13.2, bandwidth: 3.8, tasks: 3.1 },
-  { day: "Wed", coverage: 7.8,  compute: 10.9, bandwidth: 4.5, tasks: 2.5 },
-  { day: "Thu", coverage: 10.4, compute: 14.8, bandwidth: 5.2, tasks: 3.7 },
-  { day: "Fri", coverage: 11.2, compute: 15.1, bandwidth: 4.9, tasks: 4.2 },
-  { day: "Sat", coverage: 9.8,  compute: 12.7, bandwidth: 4.3, tasks: 3.9 },
-  { day: "Sun", coverage: 8.9,  compute: 11.3, bandwidth: 3.7, tasks: 3.1 },
-];
-
-const PIE_DATA = [
-  { name: "Compute",   value: 40, color: "#a78bfa" },
-  { name: "Coverage",  value: 35, color: "#2dd4bf" },
-  { name: "Bandwidth", value: 15, color: "#f59e0b" },
-  { name: "AI Tasks",  value: 10, color: "#34d399" },
-];
-
-const LOG_COLOR = {
-  slash: "text-red-400", social: "text-sky-400", pool: "text-purple-400",
-  recruit: "text-green-400", reward: "text-amber-400", action: "text-teal-400",
+// ─────────────────────────────────────────────
+//  INLINE SVG ICONS
+// ─────────────────────────────────────────────
+const Icon = {
+  Globe:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+  Cpu:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>,
+  Bot:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>,
+  Clock:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  Radio:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>,
+  Check:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  Alert:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+  Copy:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+  LogOut: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  Play:   () => <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>,
+  Stop:   () => <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
+  Link:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>,
+  Mobile: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>,
 };
 
-function StatCard({ label, value, sub, color }) {
-  return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-      <p className="text-slate-500 text-xs mb-1">{label}</p>
-      <p className={`font-mono text-lg font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-slate-600 text-xs mt-0.5">{sub}</p>}
-    </div>
-  );
+// ─────────────────────────────────────────────
+//  WALLET PROVIDERS
+// ─────────────────────────────────────────────
+const WALLETS = [
+  {
+    id: "mobile",
+    name: "Solana Mobile",
+    emoji: "📱",
+    url: "https://solanamobile.com",
+    desc: "Saga / Chapter 2",
+    detect: () => {
+      if (typeof window === "undefined") return false;
+      // Solana Mobile dApp store injected provider
+      return !!(window?.solana?.isSolanaMobile || window?.solanaMobile);
+    },
+    getProvider: () => window?.solanaMobile || window?.solana,
+  },
+  {
+    id: "phantom",
+    name: "Phantom",
+    emoji: "👻",
+    url: "https://phantom.app",
+    desc: "Most popular",
+    detect: () => typeof window !== "undefined" && !!window?.solana?.isPhantom,
+    getProvider: () => window?.solana,
+  },
+  {
+    id: "solflare",
+    name: "Solflare",
+    emoji: "☀️",
+    url: "https://solflare.com",
+    desc: "Solana native",
+    detect: () => typeof window !== "undefined" && !!window?.solflare?.isSolflare,
+    getProvider: () => window?.solflare,
+  },
+  {
+    id: "backpack",
+    name: "Backpack",
+    emoji: "🎒",
+    url: "https://backpack.app",
+    desc: "xNFT wallet",
+    detect: () => typeof window !== "undefined" && !!window?.backpack,
+    getProvider: () => window?.backpack,
+  },
+  {
+    id: "glow",
+    name: "Glow",
+    emoji: "✨",
+    url: "https://glow.app",
+    desc: "Fast & clean",
+    detect: () => typeof window !== "undefined" && !!window?.glow,
+    getProvider: () => window?.glow,
+  },
+  {
+    id: "exodus",
+    name: "Exodus",
+    emoji: "🚀",
+    url: "https://exodus.com",
+    desc: "Multi-chain",
+    detect: () => typeof window !== "undefined" && !!window?.exodus?.solana,
+    getProvider: () => window?.exodus?.solana,
+  },
+];
+
+async function getSolBalance(pubkey) {
+  try {
+    const r = await fetch("https://api.mainnet-beta.solana.com", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getBalance", params: [pubkey, { commitment: "confirmed" }] }),
+    });
+    const d = await r.json();
+    return (d?.result?.value ?? 0) / 1e9;
+  } catch { return 0; }
 }
 
-function Meter({ label, value, color, trackColor }) {
-  return (
-    <div className="mb-4">
-      <div className="flex justify-between mb-1.5">
-        <span className="text-slate-400 text-sm">{label}</span>
-        <span className={`text-sm font-mono font-medium ${color}`}>{value.toFixed(1)}%</span>
-      </div>
-      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-700 ${trackColor}`} style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  );
-}
+const fmtAddr = (a) => a ? `${a.slice(0, 4)}...${a.slice(-4)}` : "";
+const fmtTime = (d) => d instanceof Date ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
 
-function Badge({ children, color }) {
-  const map = {
-    teal: "bg-teal-400/10 text-teal-400 border-teal-400/20",
-    amber: "bg-amber-400/10 text-amber-400 border-amber-400/20",
-    purple: "bg-purple-400/10 text-purple-400 border-purple-400/20",
-    green: "bg-green-400/10 text-green-400 border-green-400/20",
-    sky: "bg-sky-400/10 text-sky-400 border-sky-400/20",
-    pink: "bg-pink-400/10 text-pink-400 border-pink-400/20",
+// ─────────────────────────────────────────────
+//  WALLET MODAL
+// ─────────────────────────────────────────────
+function WalletModal({ onClose, onConnect }) {
+  const [detected, setDetected] = useState({});
+
+  useEffect(() => {
+    const d = {};
+    WALLETS.forEach(w => { d[w.id] = w.detect(); });
+    setDetected(d);
+  }, []);
+
+  const handleClick = async (wallet) => {
+    if (detected[wallet.id]) {
+      const provider = wallet.getProvider();
+      if (provider) onConnect(provider, wallet.name, wallet.id);
+    } else {
+      window.open(wallet.url, "_blank");
+    }
   };
+
+  const detectedWallets = WALLETS.filter(w => detected[w.id]);
+  const otherWallets = WALLETS.filter(w => !detected[w.id]);
+
   return (
-    <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${map[color]}`}>{children}</span>
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem", backdropFilter: "blur(8px)" }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "1.25rem", padding: "1.5rem", width: "100%", maxWidth: "26rem", boxShadow: "0 0 80px rgba(45,212,191,0.08), 0 32px 64px rgba(0,0,0,0.6)" }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <img src={LOGO} alt="OMNIX" style={{ width: "2rem", height: "2rem", borderRadius: "0.5rem", objectFit: "cover" }} />
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", letterSpacing: "-0.02em" }}>Connect Wallet</span>
+          </div>
+          <button onClick={onClose} style={{ color: "#475569", background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+
+        {/* Notice */}
+        <div style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.18)", borderRadius: "0.75rem", padding: "0.75rem", marginBottom: "1.25rem" }}>
+          <p style={{ color: "#f59e0b", fontSize: "0.72rem", lineHeight: 1.6, margin: 0 }}>
+            ⚠️ Pre-launch mode — connecting joins the waitlist. You'll be first when OMNIX launches on Solana mainnet.
+          </p>
+        </div>
+
+        {/* Detected wallets */}
+        {detectedWallets.length > 0 && (
+          <div style={{ marginBottom: "1rem" }}>
+            <p style={{ color: "#334155", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Detected on this device</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              {detectedWallets.map(w => (
+                <button key={w.id} onClick={() => handleClick(w)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.875rem 1rem", borderRadius: "0.75rem", cursor: "pointer", background: "rgba(45,212,191,0.05)", border: "1px solid rgba(45,212,191,0.2)", transition: "all 0.15s ease" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(45,212,191,0.1)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(45,212,191,0.05)"; }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <span style={{ fontSize: "1.5rem" }}>{w.emoji}</span>
+                    <div style={{ textAlign: "left" }}>
+                      <p style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "0.875rem", margin: 0 }}>{w.name}</p>
+                      <p style={{ color: "#334155", fontSize: "0.68rem", margin: "0.1rem 0 0" }}>{w.desc}</p>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: "0.68rem", padding: "0.25rem 0.625rem", borderRadius: "9999px", background: "rgba(52,211,153,0.1)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)", fontWeight: 700 }}>Connect</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Other wallets */}
+        {otherWallets.length > 0 && (
+          <div>
+            <p style={{ color: "#334155", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Install a wallet</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              {otherWallets.map(w => (
+                <button key={w.id} onClick={() => handleClick(w)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", borderRadius: "0.75rem", cursor: "pointer", background: "transparent", border: "1px solid #1a2744", transition: "all 0.15s ease" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#2d3f66"; e.currentTarget.style.background = "#0d1629"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#1a2744"; e.currentTarget.style.background = "transparent"; }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <span style={{ fontSize: "1.4rem" }}>{w.emoji}</span>
+                    <div style={{ textAlign: "left" }}>
+                      <p style={{ color: "#94a3b8", fontWeight: 600, fontSize: "0.825rem", margin: 0 }}>{w.name}</p>
+                      <p style={{ color: "#1e293b", fontSize: "0.65rem", margin: "0.1rem 0 0" }}>{w.desc}</p>
+                    </div>
+                  </div>
+                  <span style={{ color: "#334155", fontSize: "0.7rem" }}>Install →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p style={{ color: "#1e293b", fontSize: "0.68rem", textAlign: "center", marginTop: "1rem" }}>
+          On Solana Mobile device? Saga / Chapter 2 detected automatically.
+        </p>
+      </div>
+    </div>
   );
 }
 
-export default function OmnixProtocol() {
-  const [tab, setTab] = useState("overview");
-  const [nodeOn, setNodeOn] = useState(false);
-  const [logs, setLogs] = useState([]);
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [stats, setStats] = useState({ nodes: 14293, tasks: 9821043, uptime: 99.97, mcap: 84.2 });
-  const [nodeStats, setNodeStats] = useState({ storage: 0, compute: 0, bandwidth: 0, health: 0, earn24h: 0, rank: 247 });
-  const [earnings, setEarnings] = useState({ total: 2841.52, pending: 14.37, today: 0, week: 203.40 });
+// ─────────────────────────────────────────────
+//  NODE RUNNER
+// ─────────────────────────────────────────────
+function NodeRunner({ wallet, onConnectWallet }) {
+  const [running, setRunning] = useState(false);
+  const [metrics, setMetrics] = useState({ storage: 0, compute: 0, bandwidth: 0, health: 0 });
+  const [uptime, setUptime] = useState(0);
+  const [earnings, setEarnings] = useState(0);
+  const timerRef = useRef(null);
+  const metricsRef = useRef(null);
 
+  const start = useCallback(() => {
+    setRunning(true);
+    setUptime(0);
+    setEarnings(0);
+    setMetrics({ storage: 74, compute: 61, bandwidth: 87, health: 97.4 });
+    timerRef.current = setInterval(() => {
+      setUptime(u => u + 1);
+      setEarnings(e => +(e + 0.000001111).toFixed(9));
+    }, 1000);
+    metricsRef.current = setInterval(() => {
+      setMetrics(m => ({
+        storage:   Math.min(100, Math.max(55, +(m.storage   + (Math.random() - 0.4) * 2.2).toFixed(1))),
+        compute:   Math.min(100, Math.max(40, +(m.compute   + (Math.random() - 0.4) * 3.1).toFixed(1))),
+        bandwidth: Math.min(100, Math.max(65, +(m.bandwidth + (Math.random() - 0.4) * 1.6).toFixed(1))),
+        health:    Math.min(100, Math.max(94, +(m.health    + (Math.random() - 0.35) * 0.3).toFixed(1))),
+      }));
+    }, 1800);
+  }, []);
+
+  const stop = useCallback(() => {
+    setRunning(false);
+    clearInterval(timerRef.current);
+    clearInterval(metricsRef.current);
+  }, []);
+
+  useEffect(() => () => { clearInterval(timerRef.current); clearInterval(metricsRef.current); }, []);
+
+  const fmtUptime = (s) => `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  const Bar = ({ value, color, label }) => (
+    <div style={{ marginBottom: "1rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.375rem" }}>
+        <span style={{ color: "#64748b", fontSize: "0.775rem" }}>{label}</span>
+        <span style={{ color, fontFamily: "monospace", fontWeight: 700, fontSize: "0.775rem" }}>{value.toFixed(1)}%</span>
+      </div>
+      <div style={{ height: "5px", background: "#080d1c", borderRadius: "9999px", overflow: "hidden", border: "1px solid #1a2744" }}>
+        <div style={{ height: "100%", width: `${value}%`, background: color, borderRadius: "9999px", transition: "width 0.9s cubic-bezier(0.4,0,0.2,1)", boxShadow: `0 0 6px ${color}55` }} />
+      </div>
+    </div>
+  );
+
+  if (!wallet.connected) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "3rem 1.5rem", textAlign: "center", background: "#080d1c", border: "1px dashed #1a2744", borderRadius: "1rem" }}>
+        <img src={LOGO} alt="OMNIX" style={{ width: "4rem", height: "4rem", borderRadius: "0.875rem", objectFit: "cover", marginBottom: "1rem", opacity: 0.5 }} />
+        <h3 style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "1rem", marginBottom: "0.5rem" }}>Connect Wallet to Run a Node</h3>
+        <p style={{ color: "#334155", fontSize: "0.8rem", lineHeight: 1.6, marginBottom: "1.5rem", maxWidth: "22rem" }}>
+          Join the waitlist with your Solana wallet — including Solana Mobile (Saga / Chapter 2). You'll be first to stake and earn $OMX at launch.
+        </p>
+        <button onClick={onConnectWallet}
+          style={{ padding: "0.75rem 2rem", borderRadius: "0.75rem", cursor: "pointer", fontWeight: 700, fontSize: "0.875rem", background: "rgba(45,212,191,0.1)", color: "#2dd4bf", border: "1px solid rgba(45,212,191,0.25)", transition: "all 0.15s ease" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(45,212,191,0.18)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(45,212,191,0.1)"; }}
+        >
+          Connect Wallet
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Pre-launch banner */}
+      <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)", borderRadius: "0.875rem", padding: "0.875rem 1rem", marginBottom: "1.25rem", display: "flex", gap: "0.75rem" }}>
+        <div style={{ width: "1rem", height: "1rem", color: "#f59e0b", flexShrink: 0, marginTop: "0.1rem" }}><Icon.Alert /></div>
+        <p style={{ color: "#f59e0b", fontSize: "0.72rem", lineHeight: 1.6, margin: 0 }}>
+          <strong>Pre-Launch Mode.</strong> The node runner simulates real contribution metrics locally. On-chain staking, proof submission, and $OMX earnings activate after smart contract deployment on Solana mainnet.
+        </p>
+      </div>
+
+      {/* Wallet info */}
+      <div style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "0.875rem", padding: "1rem", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.875rem" }}>
+        <img src={LOGO} alt="" style={{ width: "2.5rem", height: "2.5rem", borderRadius: "0.625rem", objectFit: "cover", flexShrink: 0 }} />
+        <div style={{ flex: 1 }}>
+          <p style={{ color: "#475569", fontSize: "0.68rem", margin: "0 0 0.2rem" }}>{wallet.name} · Connected</p>
+          <p style={{ color: "#e2e8f0", fontFamily: "monospace", fontSize: "0.775rem", fontWeight: 600, margin: 0 }}>{wallet.address}</p>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <p style={{ color: "#f59e0b", fontFamily: "monospace", fontWeight: 700, fontSize: "0.9rem", margin: 0 }}>{wallet.balance.toFixed(4)}</p>
+          <p style={{ color: "#334155", fontSize: "0.65rem", margin: 0 }}>SOL</p>
+        </div>
+      </div>
+
+      {/* Node control panel */}
+      <div style={{ background: "#080d1c", border: `1px solid ${running ? "rgba(45,212,191,0.2)" : "#1a2744"}`, borderRadius: "1rem", padding: "1.25rem", marginBottom: "1.25rem", transition: "border-color 0.4s ease", boxShadow: running ? "0 0 40px rgba(45,212,191,0.04)" : "none" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.375rem" }}>
+              <div style={{ width: "0.5rem", height: "0.5rem", borderRadius: "9999px", background: running ? "#2dd4bf" : "#1e293b", animation: running ? "pulse 2s infinite" : "none" }} />
+              <span style={{ color: running ? "#2dd4bf" : "#334155", fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                {running ? "Node Active" : "Node Offline"}
+              </span>
+            </div>
+            <h3 style={{ color: "#e2e8f0", fontWeight: 800, fontSize: "1rem", margin: "0 0 0.25rem", letterSpacing: "-0.02em" }}>Node Runner</h3>
+            <p style={{ color: "#334155", fontSize: "0.72rem", margin: 0 }}>
+              {running ? `Uptime: ${fmtUptime(uptime)}` : "Pre-launch simulation · No real stake required"}
+            </p>
+          </div>
+          <button onClick={running ? stop : start}
+            style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.625rem 1.25rem", borderRadius: "0.75rem", cursor: "pointer", fontWeight: 700, fontSize: "0.8rem", transition: "all 0.15s ease", background: running ? "rgba(239,68,68,0.1)" : "rgba(45,212,191,0.1)", color: running ? "#ef4444" : "#2dd4bf", border: running ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(45,212,191,0.25)" }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = "0.75"; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
+          >
+            <div style={{ width: "0.85rem", height: "0.85rem" }}>{running ? <Icon.Stop /> : <Icon.Play />}</div>
+            {running ? "Stop Node" : "Start Node"}
+          </button>
+        </div>
+
+        {/* Metric bars */}
+        <div style={{ opacity: running ? 1 : 0.25, transition: "opacity 0.5s ease" }}>
+          <Bar value={metrics.storage}   color="#f59e0b" label="Storage Contribution" />
+          <Bar value={metrics.compute}   color="#2dd4bf" label="Compute Contribution" />
+          <Bar value={metrics.bandwidth} color="#a78bfa" label="Bandwidth Contribution" />
+          <Bar value={metrics.health}    color="#34d399" label="Node Health Score" />
+        </div>
+
+        {/* Stats row */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.625rem", marginTop: "0.75rem" }}>
+          {[
+            { label: "Session Earned", value: running ? `${earnings.toFixed(6)}` : "—", unit: "$OMX", color: "#f59e0b" },
+            { label: "Health",         value: running ? `${metrics.health.toFixed(1)}` : "—", unit: "%", color: "#34d399" },
+            { label: "Status",         value: running ? "Active" : "Offline", unit: "", color: running ? "#2dd4bf" : "#334155" },
+          ].map(s => (
+            <div key={s.label} style={{ background: "#040812", border: "1px solid #1a2744", borderRadius: "0.75rem", padding: "0.75rem", textAlign: "center" }}>
+              <p style={{ color: "#334155", fontSize: "0.62rem", margin: "0 0 0.3rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</p>
+              <p style={{ color: s.color, fontFamily: "monospace", fontWeight: 700, fontSize: "0.825rem", margin: 0 }}>
+                {s.value}{s.unit && <span style={{ fontSize: "0.6rem", marginLeft: "0.2rem", opacity: 0.7 }}>{s.unit}</span>}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Reward mechanisms */}
+      <div style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "1rem", padding: "1.25rem" }}>
+        <p style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "0.875rem", margin: "0 0 1rem", letterSpacing: "-0.01em" }}>Reward Mechanisms — Locked Until Mainnet</p>
+        {[
+          { name: "Proof-of-Coverage",  desc: "Uptime + location verified every 15 min", rate: "0.012 $OMX/hr" },
+          { name: "Proof-of-Compute",   desc: "CPU/GPU tasks verified on-chain",          rate: "0.016 $OMX/task" },
+          { name: "Bandwidth Relay",    desc: "Traffic routed through your node",         rate: "0.008 $OMX/GB" },
+          { name: "AI Task Bounties",   desc: "Inference & embeddings from clients",      rate: "0.04 $OMX/task" },
+          { name: "Node Running Bonus", desc: "Base reward for keeping node online",      rate: "0.004 $OMX/hr" },
+        ].map(r => (
+          <div key={r.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem", borderRadius: "0.75rem", background: running ? "rgba(45,212,191,0.03)" : "transparent", border: `1px solid ${running ? "rgba(45,212,191,0.08)" : "#0d1629"}`, marginBottom: "0.5rem", transition: "all 0.3s ease" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+              <div style={{ width: "0.4rem", height: "0.4rem", borderRadius: "9999px", background: running ? "#2dd4bf" : "#1e293b", flexShrink: 0, transition: "background 0.3s ease" }} />
+              <div>
+                <p style={{ color: running ? "#e2e8f0" : "#334155", fontSize: "0.775rem", fontWeight: 600, margin: 0, transition: "color 0.3s ease" }}>{r.name}</p>
+                <p style={{ color: "#1e293b", fontSize: "0.65rem", margin: "0.1rem 0 0" }}>{r.desc}</p>
+              </div>
+            </div>
+            <span style={{ color: running ? "#f59e0b" : "#1e293b", fontFamily: "monospace", fontSize: "0.7rem", fontWeight: 700, whiteSpace: "nowrap", transition: "color 0.3s ease" }}>{r.rate}</span>
+          </div>
+        ))}
+        <p style={{ color: "#1a2744", fontSize: "0.65rem", textAlign: "center", marginTop: "0.75rem" }}>🔒 On-chain rewards activate after smart contract deployment</p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+//  MAIN APP
+// ─────────────────────────────────────────────
+const TABS = [
+  { id: "overview", label: "Overview", Icon: Icon.Globe },
+  { id: "node",     label: "My Node",  Icon: Icon.Cpu },
+  { id: "agent",    label: "AI Agent", Icon: Icon.Bot },
+  { id: "roadmap",  label: "Roadmap",  Icon: Icon.Clock },
+  { id: "social",   label: "Social",   Icon: Icon.Radio },
+];
+
+export default function App() {
+  const [tab, setTab]                           = useState("overview");
+  const [showWalletModal, setShowWalletModal]   = useState(false);
+  const [showWalletMenu, setShowWalletMenu]     = useState(false);
+  const [wallet, setWallet]                     = useState({ connected: false, address: "", name: "", id: "", balance: 0 });
+  const [copied, setCopied]                     = useState(false);
+  const [agentOnline, setAgentOnline]           = useState(false);
+  const [apiStats, setApiStats]                 = useState(null);
+  const [agentLogs, setAgentLogs]               = useState([]);
+  const [lastSync, setLastSync]                 = useState("");
   const canvasRef = useRef(null);
-  const animRef = useRef(null);
-  const logIdxRef = useRef(0);
+  const animRef   = useRef(null);
 
-  // Animated particle network canvas
+  // ── Fetch API stats ──────────────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const r = await fetch(`${API}/stats`, { signal: AbortSignal.timeout(5000) });
+        if (r.ok) {
+          const d = await r.json();
+          setApiStats(d);
+          setAgentOnline(true);
+          setLastSync(new Date(d.lastUpdated || Date.now()).toLocaleTimeString());
+          if (Array.isArray(d.agentLogs) && d.agentLogs.length > 0) {
+            setAgentLogs(d.agentLogs.slice(0, 40).map((l, i) => ({ ...l, id: i, ts: new Date(l.timestamp || Date.now()) })));
+          }
+        }
+      } catch { setAgentOnline(false); }
+    };
+    load();
+    const iv = setInterval(load, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // ── Canvas animation ─────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    let w = canvas.offsetWidth, h = canvas.offsetHeight;
-    canvas.width = w; canvas.height = h;
-
-    const COLORS = ["#2dd4bf", "#f59e0b", "#a78bfa"];
-    const pts = Array.from({ length: 75 }, () => ({
-      x: Math.random() * w, y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.35, vy: (Math.random() - 0.5) * 0.35,
-      r: Math.random() * 1.8 + 0.8,
-      c: COLORS[Math.floor(Math.random() * 3)],
-      phase: Math.random() * Math.PI * 2,
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    const C = ["#2dd4bf", "#f59e0b", "#a78bfa", "#34d399"];
+    const pts = Array.from({ length: 55 }, () => ({
+      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.28, vy: (Math.random() - 0.5) * 0.28,
+      r: Math.random() * 1.4 + 0.5, c: C[Math.floor(Math.random() * 4)], ph: Math.random() * Math.PI * 2,
     }));
-
-    let frame = 0;
+    let f = 0;
     const draw = () => {
-      frame++;
-      ctx.fillStyle = "rgba(2,6,23,0.18)";
-      ctx.fillRect(0, 0, w, h);
+      f++;
+      ctx.fillStyle = "rgba(4,9,28,0.18)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       pts.forEach((a, i) => {
-        for (let j = i + 1; j < Math.min(i + 7, pts.length); j++) {
-          const b = pts[j];
-          const d = Math.hypot(a.x - b.x, a.y - b.y);
-          if (d < 110) {
-            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = `rgba(45,212,191,${0.13 * (1 - d / 110)})`;
-            ctx.lineWidth = 0.5; ctx.stroke();
-          }
+        for (let j = i + 1; j < Math.min(i + 5, pts.length); j++) {
+          const b = pts[j], d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d < 90) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.strokeStyle = `rgba(45,212,191,${0.08 * (1 - d / 90)})`; ctx.lineWidth = 0.5; ctx.stroke(); }
         }
-        const p = Math.sin(a.phase + frame * 0.018) * 0.5 + 0.5;
-        ctx.globalAlpha = 0.65 + p * 0.35;
-        ctx.beginPath(); ctx.arc(a.x, a.y, a.r * (1 + p * 0.25), 0, Math.PI * 2);
-        ctx.fillStyle = a.c; ctx.fill(); ctx.globalAlpha = 1;
+        const p = Math.sin(a.ph + f * 0.016) * 0.5 + 0.5;
+        ctx.globalAlpha = 0.5 + p * 0.5;
+        ctx.beginPath(); ctx.arc(a.x, a.y, a.r * (1 + p * 0.3), 0, Math.PI * 2); ctx.fillStyle = a.c; ctx.fill(); ctx.globalAlpha = 1;
         a.x += a.vx; a.y += a.vy;
-        if (a.x < 0 || a.x > w) a.vx *= -1;
-        if (a.y < 0 || a.y > h) a.vy *= -1;
+        if (a.x < 0 || a.x > canvas.width) a.vx *= -1;
+        if (a.y < 0 || a.y > canvas.height) a.vy *= -1;
       });
       animRef.current = requestAnimationFrame(draw);
     };
@@ -154,479 +463,408 @@ export default function OmnixProtocol() {
     return () => cancelAnimationFrame(animRef.current);
   }, []);
 
-  // Live stat updates
-  useEffect(() => {
-    const iv = setInterval(() => {
-      setStats(s => ({
-        ...s,
-        nodes: s.nodes + (Math.random() > 0.6 ? 1 : 0),
-        tasks: s.tasks + Math.floor(Math.random() * 80 + 30),
-        mcap: +(s.mcap + (Math.random() - 0.35) * 0.08).toFixed(2),
-      }));
-      if (nodeOn) {
-        setNodeStats(s => ({
-          storage:  Math.min(100, Math.max(60, +(s.storage  + (Math.random() - 0.4) * 1.8).toFixed(1))),
-          compute:  Math.min(100, Math.max(45, +(s.compute  + (Math.random() - 0.4) * 2.5).toFixed(1))),
-          bandwidth:Math.min(100, Math.max(70, +(s.bandwidth + (Math.random() - 0.4) * 1.2).toFixed(1))),
-          health:   Math.min(100, Math.max(96, +(s.health   + (Math.random() - 0.4) * 0.4).toFixed(1))),
-          earn24h:  +(s.earn24h + 0.038 + Math.random() * 0.018).toFixed(3),
-          rank:     Math.max(100, s.rank + (Math.random() > 0.7 ? -1 : 0)),
-        }));
-        setEarnings(e => ({
-          ...e,
-          pending: +(e.pending + 0.007 + Math.random() * 0.004).toFixed(3),
-          today:   +(e.today + 0.038 + Math.random() * 0.018).toFixed(3),
-        }));
-      }
-    }, 1600);
-    return () => clearInterval(iv);
-  }, [nodeOn]);
-
-  useEffect(() => {
-    if (nodeOn) setNodeStats({ storage: 78.4, compute: 62.1, bandwidth: 91.7, health: 98.4, earn24h: 31.7, rank: 247 });
-    else setNodeStats(s => ({ ...s, storage: 0, compute: 0, bandwidth: 0, health: 0, earn24h: 0 }));
-  }, [nodeOn]);
-
-  // AI agent live logs
-  useEffect(() => {
-    const init = LOG_POOL.slice(0, 5).map((l, i) => ({
-      ...l, id: i, ts: new Date(Date.now() - (4 - i) * 200000)
-    }));
-    setLogs(init); logIdxRef.current = 5;
-    const iv = setInterval(() => {
-      setLogs(prev => [{
-        ...LOG_POOL[logIdxRef.current % LOG_POOL.length],
-        id: Date.now(), ts: new Date(),
-      }, ...prev.slice(0, 29)]);
-      logIdxRef.current++;
-    }, 5500);
-    return () => clearInterval(iv);
+  // ── Wallet ───────────────────────────────
+  const connectWallet = useCallback(async (provider, name, id) => {
+    try {
+      await provider.connect();
+      const pubkey = provider.publicKey?.toString();
+      if (!pubkey) throw new Error("No public key returned");
+      const bal = await getSolBalance(pubkey);
+      setWallet({ connected: true, address: pubkey, name, id, balance: bal });
+      setShowWalletModal(false);
+    } catch (e) { console.error("Wallet connect failed:", e.message); }
   }, []);
 
-  const fmtNum = n => n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "K" : String(n);
-  const fmtT = d => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const disconnect = useCallback(() => {
+    setWallet({ connected: false, address: "", name: "", id: "", balance: 0 });
+    setShowWalletMenu(false);
+  }, []);
 
-  // ─── OVERVIEW ───────────────────────────────────────────────────────────────
+  const copyAddr = useCallback(() => {
+    navigator.clipboard.writeText(wallet.address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [wallet.address]);
+
+  // ── OVERVIEW ─────────────────────────────
   const OverviewTab = () => (
     <div>
-      <div className="relative rounded-xl overflow-hidden mb-5 border border-slate-800" style={{ height: 260 }}>
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ background: "#020617" }} />
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-          <p className="text-teal-400 text-xs tracking-widest uppercase mb-2 font-medium">Multi-Layer DePIN · Solana Mainnet</p>
-          <h1 className="text-white text-4xl font-bold tracking-tight mb-1.5">OMNIX Protocol</h1>
-          <p className="text-slate-400 text-sm max-w-md">The world's first fully autonomous multi-layer DePIN network. No human input. Ever.</p>
-          <div className="flex gap-2.5 mt-5">
-            {[["Compute","teal"],["Storage","amber"],["Bandwidth","purple"]].map(([l,c]) => (
-              <div key={l} className={`flex items-center gap-1.5 text-xs border rounded-full px-3 py-1 bg-${c}-400/10 text-${c}-400 border-${c}-400/20`}>
-                <span className={`w-1.5 h-1.5 rounded-full bg-${c}-400 animate-pulse`} />{l}
-              </div>
+      {/* Hero */}
+      <div style={{ position: "relative", borderRadius: "1rem", overflow: "hidden", marginBottom: "1.25rem", border: "1px solid #1a2744", height: "260px" }}>
+        <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "#04091c" }} />
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "1.5rem" }}>
+          <img src={LOGO} alt="OMNIX Protocol" style={{ width: "4.5rem", height: "4.5rem", borderRadius: "1rem", objectFit: "cover", marginBottom: "1rem", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 0 30px rgba(45,212,191,0.15)" }} />
+          <span style={{ fontSize: "0.65rem", padding: "0.275rem 0.75rem", borderRadius: "9999px", background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.22)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "0.75rem" }}>
+            🚀 Pre-Launch · Raising Funds
+          </span>
+          <h1 style={{ color: "#fff", fontSize: "clamp(1.75rem,5vw,2.5rem)", fontWeight: 800, letterSpacing: "-0.035em", margin: "0 0 0.5rem", lineHeight: 1.1 }}>OMNIX Protocol</h1>
+          <p style={{ color: "#475569", fontSize: "0.825rem", maxWidth: "26rem", lineHeight: 1.65, margin: "0 0 1rem" }}>
+            The world's first fully autonomous multi-layer DePIN on Solana. Storage + Compute + Bandwidth.
+          </p>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
+            {[["Compute", "#2dd4bf"], ["Storage", "#f59e0b"], ["Bandwidth", "#a78bfa"]].map(([l, c]) => (
+              <span key={l} style={{ fontSize: "0.68rem", padding: "0.25rem 0.75rem", borderRadius: "9999px", background: `${c}12`, color: c, border: `1px solid ${c}30`, fontWeight: 600 }}>● {l}</span>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
-        <StatCard label="Active Nodes"     value={fmtNum(stats.nodes)} sub="+2 in last hour"    color="text-teal-400" />
-        <StatCard label="Tasks Completed"  value={fmtNum(stats.tasks)} sub="all-time total"      color="text-purple-400" />
-        <StatCard label="Network Uptime"   value={stats.uptime.toFixed(2) + "%"} sub="last 30 days" color="text-green-400" />
-        <StatCard label="$OMX Market Cap"  value={"$" + stats.mcap + "M"} sub="live estimate"   color="text-amber-400" />
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-white text-sm font-semibold">AI Agent — Live Activity Feed</span>
+      {/* Status */}
+      <div style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.16)", borderRadius: "0.875rem", padding: "1rem", marginBottom: "1.25rem" }}>
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <div style={{ width: "1.1rem", height: "1.1rem", color: "#f59e0b", flexShrink: 0, marginTop: "0.1rem" }}><Icon.Alert /></div>
+          <div>
+            <p style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "0.85rem", margin: "0 0 0.3rem" }}>Pre-Launch Status</p>
+            <p style={{ color: "#64748b", fontSize: "0.75rem", lineHeight: 1.65, margin: 0 }}>
+              OMNIX is in pre-launch. AI agent is running 24/7, smart contracts are written and ready. We are raising funds to deploy on Solana mainnet. Node registration and the $OMX token launch after deployment.
+            </p>
           </div>
-          <span className="text-slate-600 text-xs font-mono">{fmtNum(stats.tasks)} decisions made</span>
-        </div>
-        <div className="space-y-0 max-h-52 overflow-y-auto">
-          {logs.slice(0, 7).map(l => (
-            <div key={l.id} className="flex items-start gap-2.5 py-2.5 border-b border-slate-800 last:border-0">
-              <span className="text-sm leading-none mt-0.5 flex-shrink-0">{l.icon}</span>
-              <p className={`text-sm flex-1 ${LOG_COLOR[l.type] || "text-slate-300"}`}>{l.msg}</p>
-              <span className="text-slate-600 text-xs font-mono whitespace-nowrap flex-shrink-0">{fmtT(l.ts)}</span>
-            </div>
-          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* Stats grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.25rem" }}>
         {[
-          { label: "Storage Layer", desc: "IPFS-compatible distributed storage across 14K+ nodes globally", icon: Database, color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" },
-          { label: "Compute Layer", desc: "GPU/CPU inference, ML tasks, rendering distributed to node operators", icon: Cpu, color: "text-teal-400", bg: "bg-teal-400/10", border: "border-teal-400/20" },
-          { label: "Bandwidth Layer", desc: "P2P relay, VPN mesh, CDN acceleration through operator network", icon: Wifi, color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" },
-        ].map(c => (
-          <div key={c.label} className={`rounded-xl p-4 border ${c.bg} ${c.border}`}>
-            <c.icon className={`w-5 h-5 ${c.color} mb-2`} />
-            <p className={`font-semibold text-sm ${c.color} mb-1`}>{c.label}</p>
-            <p className="text-slate-400 text-xs leading-relaxed">{c.desc}</p>
+          { label: "Registered Nodes",  value: apiStats?.totalNodes ?? 0,          sub: "0 until mainnet",      color: "#2dd4bf", pre: true },
+          { label: "$OMX Distributed",  value: apiStats?.rewardsDistributed ?? 0,  sub: "0 until token launch", color: "#f59e0b", pre: true },
+          { label: "Agent Status",      value: agentOnline ? "Online ✓" : "Offline", sub: agentOnline ? `Synced ${lastSync}` : "Check server", color: agentOnline ? "#34d399" : "#ef4444", pre: false },
+          { label: "Current Epoch",     value: apiStats?.currentEpoch ?? "—",      sub: "Advances every 24h",   color: "#a78bfa", pre: false },
+        ].map(s => (
+          <div key={s.label} style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "0.875rem", padding: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.375rem" }}>
+              <span style={{ color: "#334155", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</span>
+              {s.pre && <span style={{ fontSize: "0.58rem", padding: "0.15rem 0.45rem", borderRadius: "9999px", background: "rgba(245,158,11,0.07)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.14)", fontWeight: 700 }}>Pre-Launch</span>}
+            </div>
+            <p style={{ color: s.color, fontFamily: "monospace", fontWeight: 700, fontSize: "1.1rem", margin: "0 0 0.2rem" }}>{s.value}</p>
+            <p style={{ color: "#1e293b", fontSize: "0.62rem", margin: 0 }}>{s.sub}</p>
           </div>
         ))}
       </div>
+
+      {/* Checklist */}
+      <div style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "1rem", padding: "1.25rem", marginBottom: "1.25rem" }}>
+        <p style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "0.875rem", margin: "0 0 1rem", letterSpacing: "-0.01em" }}>What's live right now</p>
+        {[
+          { text: "AI Agent running 24/7 on DigitalOcean London", done: true },
+          { text: "Smart contracts written in Anchor/Rust",        done: true },
+          { text: "Web dashboard deployed and live",               done: true },
+          { text: "GitHub repository open source",                 done: true },
+          { text: "Solana Foundation grant application submitted", done: true },
+          { text: "Smart contract deployed to Solana mainnet",     done: false },
+          { text: "$OMX SPL token created",                        done: false },
+          { text: "Node registration open (1,000 $OMX stake)",     done: false },
+          { text: "$OMX listed on Raydium / Jupiter",              done: false },
+          { text: "Solana Mobile node runner app",                 done: false },
+        ].map(item => (
+          <div key={item.text} style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "0.625rem" }}>
+            <div style={{ width: "1rem", height: "1rem", flexShrink: 0, color: item.done ? "#34d399" : "#1e293b" }}>{item.done ? <Icon.Check /> : <Icon.Clock />}</div>
+            <span style={{ color: item.done ? "#e2e8f0" : "#334155", fontSize: "0.78rem" }}>{item.text}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* CTA */}
+      {wallet.connected ? (
+        <div style={{ background: "rgba(52,211,153,0.04)", border: "1px solid rgba(52,211,153,0.18)", borderRadius: "0.875rem", padding: "1rem", textAlign: "center" }}>
+          <div style={{ width: "1.5rem", height: "1.5rem", color: "#34d399", margin: "0 auto 0.5rem" }}><Icon.Check /></div>
+          <p style={{ color: "#34d399", fontWeight: 700, fontSize: "0.9rem", margin: "0 0 0.25rem" }}>You're on the waitlist!</p>
+          <p style={{ color: "#334155", fontSize: "0.72rem", fontFamily: "monospace", margin: 0 }}>{wallet.address}</p>
+        </div>
+      ) : (
+        <button onClick={() => setShowWalletModal(true)}
+          style={{ width: "100%", padding: "0.9rem", borderRadius: "0.875rem", cursor: "pointer", fontWeight: 700, fontSize: "0.9rem", background: "rgba(45,212,191,0.08)", color: "#2dd4bf", border: "1px solid rgba(45,212,191,0.22)", transition: "all 0.15s ease", letterSpacing: "-0.01em" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(45,212,191,0.15)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(45,212,191,0.08)"; }}
+        >
+          Connect Wallet — Join Waitlist
+        </button>
+      )}
     </div>
   );
 
-  // ─── MY NODE ─────────────────────────────────────────────────────────────────
-  const NodeTab = () => (
+  // ── AGENT TAB ────────────────────────────
+  const AgentTab = () => (
     <div>
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-white font-bold text-lg">Node Runner</h2>
-            <p className="text-slate-500 text-sm">Node #{fmtNum(stats.nodes)} · Solana Mainnet</p>
+      <div style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "1rem", padding: "1.25rem", marginBottom: "1.25rem" }}>
+        <div style={{ display: "flex", gap: "0.875rem", alignItems: "flex-start", marginBottom: "1.25rem" }}>
+          <div style={{ width: "3rem", height: "3rem", borderRadius: "0.875rem", background: "linear-gradient(135deg,rgba(45,212,191,0.18),rgba(167,139,250,0.18))", border: "1px solid rgba(45,212,191,0.18)", display: "flex", alignItems: "center", justifyContent: "center", color: "#2dd4bf", flexShrink: 0 }}>
+            <Icon.Bot />
           </div>
-          <button
-            onClick={() => setNodeOn(v => !v)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all border ${
-              nodeOn
-                ? "bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
-                : "bg-teal-400/20 text-teal-400 border-teal-400/30 hover:bg-teal-400/30"
-            }`}
-          >
-            {nodeOn ? <><Square className="w-4 h-4" /> Stop Node</> : <><Play className="w-4 h-4" /> Start Node</>}
-          </button>
+          <div>
+            <h2 style={{ color: "#e2e8f0", fontWeight: 800, fontSize: "1rem", margin: "0 0 0.3rem", letterSpacing: "-0.02em" }}>OMNIX Autonomous Agent</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+              <div style={{ width: "0.45rem", height: "0.45rem", borderRadius: "9999px", background: agentOnline ? "#34d399" : "#334155", animation: agentOnline ? "pulse 2s infinite" : "none" }} />
+              <span style={{ color: agentOnline ? "#34d399" : "#475569", fontSize: "0.72rem", fontWeight: 600 }}>{agentOnline ? "Online · Running autonomously" : "Connecting..."}</span>
+            </div>
+            <p style={{ color: "#1e293b", fontSize: "0.65rem", margin: "0.2rem 0 0" }}>DigitalOcean London · Claude AI (Anthropic)</p>
+            {lastSync && <p style={{ color: "#1a2744", fontSize: "0.62rem", margin: "0.15rem 0 0" }}>Last sync: {lastSync}</p>}
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5 mb-5">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "1rem" }}>
           {[
-            { label: "24h Earnings", value: nodeOn ? `${nodeStats.earn24h.toFixed(3)} $OMX` : "—", color: "text-amber-400" },
-            { label: "Global Rank",  value: nodeOn ? `#${nodeStats.rank}` : "—", color: "text-purple-400" },
-            { label: "Health Score", value: nodeOn ? `${nodeStats.health.toFixed(1)}%` : "—", color: "text-green-400" },
+            { label: "Server",   value: "165.232.41.239", color: "#2dd4bf" },
+            { label: "Location", value: "London, UK",     color: "#a78bfa" },
+            { label: "Runtime",  value: "Node.js 18",     color: "#34d399" },
+            { label: "AI Model", value: "Claude Sonnet",  color: "#f59e0b" },
           ].map(s => (
-            <div key={s.label} className="bg-slate-800/50 rounded-lg p-3 text-center">
-              <p className="text-slate-500 text-xs mb-1">{s.label}</p>
-              <p className={`font-mono font-bold ${s.color}`}>{s.value}</p>
+            <div key={s.label} style={{ background: "#040812", border: "1px solid #1a2744", borderRadius: "0.75rem", padding: "0.75rem" }}>
+              <p style={{ color: "#1e293b", fontSize: "0.6rem", margin: "0 0 0.25rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</p>
+              <p style={{ color: s.color, fontFamily: "monospace", fontSize: "0.775rem", fontWeight: 700, margin: 0 }}>{s.value}</p>
             </div>
           ))}
         </div>
 
-        <div className={`transition-opacity duration-500 ${nodeOn ? "opacity-100" : "opacity-25 pointer-events-none"}`}>
-          <Meter label="Storage Contribution"   value={nodeStats.storage}   color="text-amber-400"  trackColor="bg-amber-400" />
-          <Meter label="Compute Contribution"   value={nodeStats.compute}   color="text-teal-400"   trackColor="bg-teal-400" />
-          <Meter label="Bandwidth Contribution" value={nodeStats.bandwidth} color="text-purple-400" trackColor="bg-purple-400" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+          {[
+            { name: "Node Governance",   desc: "Audits nodes, slashes fraud" },
+            { name: "Reward Rebalancing",desc: "Optimizes pool weights per epoch" },
+            { name: "Anti-Sybil Defense",desc: "ML detection of fake clusters" },
+            { name: "Treasury Routing",  desc: "10% fees → Bkggreen.sol founder" },
+          ].map(c => (
+            <div key={c.name} style={{ background: "#040812", border: "1px solid #1a2744", borderRadius: "0.75rem", padding: "0.875rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", marginBottom: "0.3rem" }}>
+                <div style={{ width: "0.375rem", height: "0.375rem", borderRadius: "9999px", background: "#2dd4bf", animation: "pulse 2s infinite" }} />
+                <p style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "0.775rem", margin: 0 }}>{c.name}</p>
+              </div>
+              <p style={{ color: "#334155", fontSize: "0.68rem", margin: 0 }}>{c.desc}</p>
+            </div>
+          ))}
         </div>
+      </div>
 
-        {!nodeOn && (
-          <div className="mt-3 border border-slate-700/40 bg-slate-800/30 rounded-lg p-3 text-center">
-            <p className="text-slate-500 text-sm">Start your node to begin earning $OMX across all three layers</p>
+      <div style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "1rem", padding: "1.25rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.875rem" }}>
+          <span style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "0.875rem", letterSpacing: "-0.01em" }}>Agent Activity Log</span>
+          <span style={{ fontSize: "0.65rem", padding: "0.2rem 0.6rem", borderRadius: "9999px", background: agentOnline ? "rgba(52,211,153,0.07)" : "rgba(30,41,59,0.5)", color: agentOnline ? "#34d399" : "#334155", border: agentOnline ? "1px solid rgba(52,211,153,0.18)" : "1px solid #1e293b", fontWeight: 700 }}>
+            {agentOnline ? "● Live" : "Offline"}
+          </span>
+        </div>
+        {agentLogs.length > 0 ? (
+          <div style={{ maxHeight: "22rem", overflowY: "auto" }}>
+            {agentLogs.map(l => (
+              <div key={l.id} style={{ display: "flex", gap: "0.625rem", padding: "0.6rem 0", borderBottom: "1px solid #0a1020" }}>
+                <p style={{ color: "#64748b", fontSize: "0.775rem", flex: 1, lineHeight: 1.55, margin: 0 }}>{l.msg || l.message || JSON.stringify(l)}</p>
+                <span style={{ color: "#1a2744", fontSize: "0.62rem", fontFamily: "monospace", whiteSpace: "nowrap", marginTop: "0.1rem" }}>{fmtTime(l.ts)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ padding: "2.5rem", textAlign: "center" }}>
+            <p style={{ color: "#334155", fontSize: "0.775rem", lineHeight: 1.6, margin: 0 }}>
+              {agentOnline ? "Agent running — logs appear as the AI makes decisions every 15 minutes." : "Cannot reach agent server. Run omnix-api.ts on your DigitalOcean droplet."}
+            </p>
+            <code style={{ color: "#1a2744", fontSize: "0.65rem", display: "block", marginTop: "0.625rem" }}>pm2 start omnix-api.ts --interpreter tsx --name omnix-api</code>
           </div>
         )}
       </div>
+    </div>
+  );
 
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-        <h3 className="text-white font-semibold mb-4 text-sm">Reward Mechanisms Active</h3>
-        <div className="space-y-2">
-          {[
-            { label: "Proof-of-Coverage", desc: "Uptime + location attestation verified every 15 min", rate: "0.012 $OMX/hr", ok: true },
-            { label: "Proof-of-Compute", desc: "CPU/GPU tasks completed and verified on-chain", rate: "0.016 $OMX/task", ok: nodeOn },
-            { label: "Bandwidth Relay", desc: "Traffic routed through your node, verified by peers", rate: "0.008 $OMX/GB", ok: nodeOn },
-            { label: "AI Task Bounties", desc: "Inference, embeddings, image tasks from clients", rate: "0.04 $OMX/task", ok: nodeOn },
-            { label: "Node Running Bonus", desc: "Simply running the node earns a base epoch reward", rate: "0.004 $OMX/hr", ok: true },
-          ].map(r => (
-            <div key={r.label} className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${r.ok && nodeOn ? "border-teal-400/20 bg-teal-400/5" : "border-slate-800 bg-slate-800/20"}`}>
-              <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${r.ok && nodeOn ? "bg-green-400 animate-pulse" : "bg-slate-600"}`} />
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${r.ok && nodeOn ? "text-white" : "text-slate-600"}`}>{r.label}</p>
-                <p className="text-slate-600 text-xs">{r.desc}</p>
+  // ── ROADMAP ──────────────────────────────
+  const RoadmapTab = () => (
+    <div style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "1rem", padding: "1.5rem" }}>
+      <h2 style={{ color: "#e2e8f0", fontWeight: 800, fontSize: "1rem", letterSpacing: "-0.02em", margin: "0 0 1.5rem" }}>OMNIX Launch Roadmap</h2>
+      {[
+        { phase: "Phase 1 — Foundation",     status: "complete", color: "#34d399", items: ["AI agent deployed & running 24/7", "Smart contracts written (Anchor/Rust)", "Web dashboard live & deployed", "GitHub open sourced", "Grant applications submitted"] },
+        { phase: "Phase 2 — Funding",        status: "active",   color: "#2dd4bf", items: ["Solana Foundation grant (applied ✓)", "Superteam grant application", "Whitelist pre-sale to early operators", "Smart contract security audit"] },
+        { phase: "Phase 3 — Mainnet Launch", status: "upcoming", color: "#a78bfa", items: ["Deploy smart contracts to Solana mainnet", "Create $OMX SPL token", "Open node registration (1,000 $OMX stake)", "Initial liquidity on Raydium / Jupiter"] },
+        { phase: "Phase 4 — Growth",         status: "upcoming", color: "#f59e0b", items: ["Solana Mobile node runner app", "500+ active node operators", "Instagram autonomous posting live", "CEX listing campaign"] },
+      ].map((p, pi, arr) => (
+        <div key={p.phase} style={{ position: "relative", paddingLeft: "2rem", paddingBottom: pi < arr.length - 1 ? "2rem" : 0 }}>
+          {pi < arr.length - 1 && <div style={{ position: "absolute", left: "0.43rem", top: "1.2rem", bottom: 0, width: "1px", background: "#1a2744" }} />}
+          <div style={{ position: "absolute", left: 0, top: "0.2rem", width: "0.875rem", height: "0.875rem", borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", background: p.status === "complete" ? p.color : p.status === "active" ? p.color : "#080d1c", border: p.status === "upcoming" ? "2px solid #1a2744" : "none", boxShadow: p.status === "active" ? `0 0 12px ${p.color}44` : "none" }}>
+            {p.status === "complete" && <div style={{ width: "0.5rem", height: "0.5rem", color: "#000" }}><Icon.Check /></div>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.625rem" }}>
+            <h3 style={{ color: p.status === "upcoming" ? "#334155" : "#e2e8f0", fontWeight: 700, fontSize: "0.85rem", margin: 0 }}>{p.phase}</h3>
+            {p.status === "active" && <span style={{ fontSize: "0.62rem", padding: "0.18rem 0.5rem", borderRadius: "9999px", background: `${p.color}12`, color: p.color, border: `1px solid ${p.color}30`, fontWeight: 700 }}>In Progress</span>}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+            {p.items.map(item => (
+              <div key={item} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ width: "0.3rem", height: "0.3rem", borderRadius: "9999px", flexShrink: 0, background: p.status === "upcoming" ? "#1a2744" : p.color }} />
+                <span style={{ fontSize: "0.75rem", color: p.status === "upcoming" ? "#334155" : "#64748b" }}>{item}</span>
               </div>
-              <span className={`text-xs font-mono ${r.ok && nodeOn ? "text-amber-400" : "text-slate-700"}`}>{r.rate}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <h3 className="text-white font-semibold mb-3 text-sm">Solana Mobile Integration</h3>
-        <div className="flex items-start gap-3 p-3 bg-purple-400/5 border border-purple-400/20 rounded-lg">
-          <div className="w-10 h-10 rounded-xl bg-purple-400/20 flex items-center justify-center flex-shrink-0">
-            <Radio className="w-5 h-5 text-purple-400" />
-          </div>
-          <div>
-            <p className="text-white font-medium text-sm">Run on Solana Saga / Chapter 2</p>
-            <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">Your node runs natively on Solana Mobile hardware. Earn passive $OMX 24/7 with zero configuration — the dApp handles everything via the Seed Vault keypair.</p>
+            ))}
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 
-  // ─── AI AGENT ────────────────────────────────────────────────────────────────
-  const AgentTab = () => (
-    <div>
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-        <div className="flex items-start gap-3 mb-5">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-400/30 to-purple-500/30 border border-teal-400/20 flex items-center justify-center flex-shrink-0">
-            <Bot className="w-6 h-6 text-teal-400" />
-          </div>
-          <div>
-            <h2 className="text-white font-bold">OMNIX Autonomous Agent</h2>
-            <p className="text-green-400 text-xs flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              Active · Fully Self-Directing · Zero Human Input Required
-            </p>
-            <p className="text-slate-500 text-xs mt-1">Powered by Claude Sonnet on Anthropic API + custom Solana tooling</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 mb-5">
-          {[
-            { label: "Actions/Day",   value: "8,471", color: "text-teal-400" },
-            { label: "Decisions/Hr",  value: "847",   color: "text-purple-400" },
-            { label: "Accuracy",      value: "99.7%", color: "text-green-400" },
-            { label: "Avg Latency",   value: "1.2s",  color: "text-amber-400" },
-          ].map(s => (
-            <div key={s.label} className="bg-slate-800 rounded-lg p-3 text-center">
-              <p className="text-slate-500 text-xs">{s.label}</p>
-              <p className={`font-mono font-bold ${s.color}`}>{s.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {[
-            { label: "Network Governance",   desc: "Monitors all nodes, auto-slashes cheaters, maintains integrity" },
-            { label: "Social Media Growth",  desc: "Posts to X & Instagram, runs campaigns, grows the community" },
-            { label: "Operator Recruitment", desc: "Finds & DMs targets on X, auto-onboards via referral flows" },
-            { label: "Reward Optimization",  desc: "Rebalances pools by epoch, auto-compounds staker yields" },
-            { label: "Anti-Sybil Defense",   desc: "ML cluster detection, removes fake nodes, burns slashed stake" },
-            { label: "Market Intelligence",  desc: "Monitors DePIN ecosystem, adjusts tokenomics autonomously" },
-            { label: "Content Generation",   desc: "Creates infographics, threads, data reports automatically" },
-            { label: "Treasury Management",  desc: "Routes protocol fees, manages buyback & burn mechanics" },
-          ].map(c => (
-            <div key={c.label} className="flex items-start gap-2.5 p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400 mt-1.5 animate-pulse flex-shrink-0" />
-              <div>
-                <p className="text-white text-sm font-medium">{c.label}</p>
-                <p className="text-slate-500 text-xs mt-0.5">{c.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-white font-semibold text-sm">Live Decision Log</span>
-          <Badge color="green">Auto-updating every 5s</Badge>
-        </div>
-        <div className="max-h-80 overflow-y-auto space-y-0">
-          {logs.map(l => (
-            <div key={l.id} className="flex items-start gap-2.5 py-2.5 border-b border-slate-800 last:border-0">
-              <span className="text-sm leading-none mt-0.5 flex-shrink-0">{l.icon}</span>
-              <p className={`text-sm flex-1 ${LOG_COLOR[l.type] || "text-slate-300"}`}>{l.msg}</p>
-              <span className="text-slate-600 text-xs font-mono whitespace-nowrap flex-shrink-0">{fmtT(l.ts)}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  // ─── EARNINGS ────────────────────────────────────────────────────────────────
-  const EarningsTab = () => (
-    <div>
-      <div className="grid grid-cols-2 gap-3 mb-4 sm:grid-cols-4">
-        <StatCard label="Total Earned (USD)"  value={"$" + earnings.total.toFixed(2)}          color="text-amber-400" />
-        <StatCard label="Pending Rewards"     value={earnings.pending.toFixed(3) + " $OMX"}    color="text-teal-400" />
-        <StatCard label="Earned Today"        value={earnings.today.toFixed(3) + " $OMX"}      color="text-purple-400" />
-        <StatCard label="This Week"           value={earnings.week.toFixed(2) + " $OMX"}       color="text-green-400" />
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-        <h3 className="text-white font-semibold text-sm mb-4">7-Day Earnings Breakdown</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={EARNINGS_DATA} margin={{ top: 0, right: 0, left: -24, bottom: 0 }}>
-            <XAxis dataKey="day" tick={{ fill: "#475569", fontSize: 12 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "#475569", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "#94a3b8" }} />
-            <Bar dataKey="coverage"  stackId="a" fill="#2dd4bf" />
-            <Bar dataKey="compute"   stackId="a" fill="#a78bfa" />
-            <Bar dataKey="bandwidth" stackId="a" fill="#f59e0b" />
-            <Bar dataKey="tasks"     stackId="a" fill="#34d399" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-        <div className="flex flex-wrap gap-4 mt-3">
-          {PIE_DATA.map(d => (
-            <div key={d.name} className="flex items-center gap-1.5 text-xs text-slate-400">
-              <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
-              {d.name} ({d.value}%)
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold text-sm mb-3">Reward Source Split</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={PIE_DATA} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="value">
-                {PIE_DATA.map((d, i) => <Cell key={i} fill={d.color} stroke="transparent" />)}
-              </Pie>
-              <Tooltip contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
-          <div>
-            <h3 className="text-white font-semibold text-sm mb-3">Claim & Stake</h3>
-            <div className="space-y-2 mb-4">
-              {[
-                { label: "Claimable Now", value: `${earnings.pending.toFixed(3)} $OMX`, color: "text-teal-400" },
-                { label: "Est. Weekly Yield", value: `${earnings.week.toFixed(2)} $OMX`, color: "text-purple-400" },
-                { label: "APY (staked)", value: "47.3%", color: "text-green-400" },
-                { label: "Epoch", value: "#847", color: "text-amber-400" },
-              ].map(s => (
-                <div key={s.label} className="flex justify-between">
-                  <span className="text-slate-500 text-sm">{s.label}</span>
-                  <span className={`font-mono text-sm font-medium ${s.color}`}>{s.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <button className="w-full py-2.5 rounded-xl bg-amber-400/20 text-amber-400 border border-amber-400/30 hover:bg-amber-400/30 transition-all text-sm font-semibold">
-              Claim {earnings.pending.toFixed(3)} $OMX
-            </button>
-            <button className="w-full py-2.5 rounded-xl bg-purple-400/10 text-purple-400 border border-purple-400/20 hover:bg-purple-400/20 transition-all text-sm font-medium">
-              Auto-Compound (47.3% APY)
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ─── SOCIAL ──────────────────────────────────────────────────────────────────
+  // ── SOCIAL ───────────────────────────────
   const SocialTab = () => (
     <div>
-      <div className="bg-amber-400/10 border border-amber-400/20 rounded-xl p-3 mb-4 flex items-start gap-2.5">
-        <Shield className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-        <p className="text-amber-400 text-xs">Accounts must be created manually once — after that, the AI agent manages everything autonomously: posting, engagement, DMs, growth, and analytics.</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
-        {[
-          {
-            platform: "X (Twitter)", handle: "@OmnixProtocol", color: "sky",
-            stats: [{ l: "Followers", v: "47.2K" }, { l: "Posts Today", v: "12" }, { l: "Engagement", v: "4.8%" }, { l: "DMs Sent", v: "847" }],
-            post: "Epoch 847 is live 🚀 Node operators earned a combined 52,410 $OMX this epoch. Rewards up 23% — and we're just getting started.",
-            time: "8 min ago", reach: "12.4K impressions",
-          },
-          {
-            platform: "Instagram", handle: "@omnixprotocol", color: "pink",
-            stats: [{ l: "Followers", v: "23.8K" }, { l: "Posts/Week", v: "7" }, { l: "Avg Reach", v: "6.1K" }, { l: "Story Views", v: "4.2K" }],
-            post: "Our node network now spans 47 countries 🌍 The future of decentralized infrastructure is here — and you can be part of it.",
-            time: "2 hrs ago", reach: "6.1K reach",
-          },
-        ].map(p => (
-          <div key={p.platform} className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className={`font-bold text-${p.color}-400`}>{p.platform}</p>
-                <p className="text-slate-500 text-xs">{p.handle}</p>
-              </div>
-              <Badge color={p.color}>AI Managed</Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              {p.stats.map(s => (
-                <div key={s.l} className="bg-slate-800/50 rounded-lg p-2.5">
-                  <p className="text-slate-500 text-xs">{s.l}</p>
-                  <p className={`font-mono font-bold text-sm text-${p.color}-400`}>{s.v}</p>
-                </div>
-              ))}
-            </div>
-            <div className={`p-3 rounded-lg bg-${p.color}-400/5 border border-${p.color}-400/20`}>
-              <p className="text-slate-300 text-xs leading-relaxed">{p.post}</p>
-              <div className="flex justify-between mt-2">
-                <span className="text-slate-600 text-xs">{p.time}</span>
-                <span className={`text-xs text-${p.color}-400`}>{p.reach}</span>
-              </div>
-            </div>
+      <div style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "1rem", padding: "1.25rem", marginBottom: "1.25rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.25rem" }}>
+          <div style={{ width: "3.5rem", height: "3.5rem", borderRadius: "1rem", background: "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+            <img src={LOGO} alt="OMNIX" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }} />
           </div>
-        ))}
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <h3 className="text-white font-semibold mb-3 text-sm">Autonomous Social Capabilities</h3>
-        <div className="grid grid-cols-1 gap-0 sm:grid-cols-2">
-          {[
-            "Posts epoch updates, reward stats, and network milestones",
-            "Engages with DePIN & Solana ecosystem accounts daily",
-            "Runs automated follower growth campaigns 24/7",
-            "DMs potential node operators with personalized pitches",
-            "Generates infographics and data visualization content",
-            "Responds to community questions and comments",
-            "A/B tests post formats for maximum engagement lift",
-            "Schedules posts across time zones for peak global reach",
-            "Tracks competitor growth and adapts content strategy",
-            "Auto-reposts top-performing content in new formats",
-          ].map(c => (
-            <div key={c} className="flex items-center gap-2.5 py-2 border-b border-slate-800 last:border-0">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
-              <p className="text-slate-400 text-sm">{c}</p>
-            </div>
-          ))}
+          <div>
+            <p style={{ color: "#e2e8f0", fontWeight: 800, fontSize: "1.05rem", margin: 0, letterSpacing: "-0.02em" }}>@omnixprotocol</p>
+            <p style={{ color: "#334155", fontSize: "0.72rem", margin: "0.25rem 0 0" }}>Instagram · AI-managed autonomous account</p>
+          </div>
         </div>
+        <a href="https://instagram.com/omnixprotocol" target="_blank" rel="noopener noreferrer"
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", padding: "0.875rem", borderRadius: "0.875rem", textDecoration: "none", background: "linear-gradient(135deg,rgba(240,148,51,0.1),rgba(188,24,136,0.1))", color: "#e2e8f0", fontWeight: 700, fontSize: "0.85rem", border: "1px solid rgba(188,24,136,0.18)", marginBottom: "1rem" }}
+          onMouseEnter={e => { e.currentTarget.style.opacity = "0.75"; }}
+          onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
+        >
+          <div style={{ width: "0.9rem", height: "0.9rem" }}><Icon.Link /></div>
+          Follow @omnixprotocol on Instagram
+        </a>
+        <div style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.14)", borderRadius: "0.75rem", padding: "0.875rem" }}>
+          <p style={{ color: "#f59e0b", fontSize: "0.72rem", lineHeight: 1.6, margin: 0 }}>
+            📸 Live Instagram feed integration requires Instagram Basic Display API credentials. The AI agent is fully built and ready to post autonomously.
+          </p>
+        </div>
+      </div>
+      <div style={{ background: "#080d1c", border: "1px solid #1a2744", borderRadius: "1rem", padding: "1.25rem" }}>
+        <p style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "0.875rem", margin: "0 0 0.875rem", letterSpacing: "-0.01em" }}>Community Links</p>
+        {[
+          { label: "Instagram", sub: "@omnixprotocol",            url: "https://instagram.com/omnixprotocol",     icon: "📸" },
+          { label: "GitHub",    sub: "Bkggreen/omnix-depin",      url: "https://github.com/Bkggreen/omnix-depin", icon: "💻" },
+          { label: "Website",   sub: "omnix-depin.vercel.app",    url: "https://omnix-depin.vercel.app",          icon: "🌐" },
+        ].map(l => (
+          <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer"
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.875rem", borderRadius: "0.75rem", textDecoration: "none", border: "1px solid #1a2744", marginBottom: "0.5rem", transition: "all 0.15s ease" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#2d3f66"; e.currentTarget.style.background = "#0d1629"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1a2744"; e.currentTarget.style.background = "transparent"; }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <span style={{ fontSize: "1.2rem" }}>{l.icon}</span>
+              <div>
+                <p style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "0.85rem", margin: 0 }}>{l.label}</p>
+                <p style={{ color: "#334155", fontSize: "0.68rem", margin: "0.15rem 0 0" }}>{l.sub}</p>
+              </div>
+            </div>
+            <div style={{ width: "0.85rem", height: "0.85rem", color: "#334155" }}><Icon.Link /></div>
+          </a>
+        ))}
       </div>
     </div>
   );
 
-  const PANELS = { overview: <OverviewTab />, node: <NodeTab />, agent: <AgentTab />, earnings: <EarningsTab />, social: <SocialTab /> };
+  const panels = {
+    overview: <OverviewTab />,
+    node:     <NodeRunner wallet={wallet} onConnectWallet={() => setShowWalletModal(true)} />,
+    agent:    <AgentTab />,
+    roadmap:  <RoadmapTab />,
+    social:   <SocialTab />,
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      {/* Header */}
-      <div className="border-b border-slate-800 bg-slate-950/95 backdrop-blur sticky top-0 z-20">
-        <div className="max-w-4xl mx-auto px-4 pt-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-teal-400/20 border border-teal-400/30 flex items-center justify-center">
-              <Zap className="w-3.5 h-3.5 text-teal-400" />
+    <div style={{ minHeight: "100vh", background: "#04091c", color: "#e2e8f0", fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+        *{box-sizing:border-box;margin:0;padding:0;}
+        ::-webkit-scrollbar{width:4px;height:4px;}
+        ::-webkit-scrollbar-track{background:#040812;}
+        ::-webkit-scrollbar-thumb{background:#1a2744;border-radius:2px;}
+        a{text-decoration:none;}
+        button{font-family:inherit;}
+      `}</style>
+
+      {showWalletModal && <WalletModal onClose={() => setShowWalletModal(false)} onConnect={connectWallet} />}
+      {showWalletMenu && <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowWalletMenu(false)} />}
+
+      {/* ── HEADER ── */}
+      <div style={{ borderBottom: "1px solid #0d1629", background: "rgba(4,9,28,0.96)", backdropFilter: "blur(16px)", position: "sticky", top: 0, zIndex: 30 }}>
+        <div style={{ maxWidth: "48rem", margin: "0 auto", padding: "0.875rem 1rem 0" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.625rem" }}>
+
+            {/* Logo + name */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+              <img src={LOGO} alt="OMNIX" style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.6rem", objectFit: "cover", border: "1px solid rgba(255,255,255,0.06)" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", letterSpacing: "-0.03em" }}>OMNIX</span>
+                <span style={{ fontSize: "0.58rem", padding: "0.18rem 0.5rem", borderRadius: "9999px", background: "rgba(245,158,11,0.07)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.18)", fontWeight: 700 }}>Pre-Launch</span>
+              </div>
             </div>
-            <span className="text-white font-bold tracking-wide">OMNIX</span>
-            <span className="text-slate-600 text-sm">Protocol</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 bg-green-400/10 border border-green-400/20 rounded-full px-2.5 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-green-400 text-xs font-medium">Mainnet Live</span>
+
+            {/* Wallet button */}
+            <div style={{ position: "relative" }}>
+              {wallet.connected ? (
+                <>
+                  <button onClick={() => setShowWalletMenu(v => !v)}
+                    style={{ display: "flex", alignItems: "center", gap: "0.45rem", padding: "0.45rem 0.875rem", borderRadius: "0.75rem", cursor: "pointer", background: "rgba(45,212,191,0.08)", color: "#2dd4bf", border: "1px solid rgba(45,212,191,0.22)", fontWeight: 700, fontSize: "0.72rem", transition: "all 0.15s ease" }}>
+                    <div style={{ width: "0.4rem", height: "0.4rem", borderRadius: "9999px", background: "#2dd4bf" }} />
+                    {fmtAddr(wallet.address)}
+                  </button>
+                  {showWalletMenu && (
+                    <div style={{ position: "absolute", right: 0, top: "2.75rem", background: "#080d1c", border: "1px solid #1a2744", borderRadius: "0.875rem", padding: "0.5rem", width: "13rem", zIndex: 50, boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}>
+                      <div style={{ padding: "0.625rem 0.75rem", borderBottom: "1px solid #0d1629", marginBottom: "0.375rem" }}>
+                        <p style={{ color: "#334155", fontSize: "0.62rem", margin: "0 0 0.2rem" }}>{wallet.name}</p>
+                        <p style={{ color: "#f59e0b", fontFamily: "monospace", fontWeight: 700, fontSize: "0.875rem", margin: 0 }}>{wallet.balance.toFixed(4)} SOL</p>
+                        <p style={{ color: "#34d399", fontSize: "0.62rem", margin: "0.2rem 0 0" }}>✓ On waitlist</p>
+                      </div>
+                      {[
+                        { label: copied ? "Copied!" : "Copy Address", icon: <Icon.Copy />, action: copyAddr, color: "#94a3b8" },
+                        { label: "Disconnect",                         icon: <Icon.LogOut />, action: disconnect, color: "#ef4444" },
+                      ].map(btn => (
+                        <button key={btn.label} onClick={btn.action}
+                          style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.75rem", borderRadius: "0.5rem", cursor: "pointer", background: "transparent", border: "none", color: btn.color, fontSize: "0.775rem", transition: "background 0.15s ease" }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "#0d1629"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                        >
+                          <div style={{ width: "0.8rem", height: "0.8rem" }}>{btn.icon}</div>
+                          {btn.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <button onClick={() => setShowWalletModal(true)}
+                  style={{ padding: "0.45rem 0.875rem", borderRadius: "0.75rem", cursor: "pointer", background: "rgba(45,212,191,0.08)", color: "#2dd4bf", border: "1px solid rgba(45,212,191,0.22)", fontWeight: 700, fontSize: "0.72rem", transition: "all 0.15s ease" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(45,212,191,0.16)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(45,212,191,0.08)"; }}
+                >
+                  Join Waitlist
+                </button>
+              )}
             </div>
-            <button
-              onClick={() => setWalletConnected(v => !v)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all border ${
-                walletConnected
-                  ? "bg-teal-400/20 text-teal-400 border-teal-400/30"
-                  : "bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600"
-              }`}
-            >
-              {walletConnected ? "◉ Connected" : "Connect Wallet"}
-            </button>
           </div>
-        </div>
-        <div className="max-w-4xl mx-auto px-4 flex gap-0 overflow-x-auto">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-all ${
-                tab === t.id ? "border-teal-400 text-teal-400" : "border-transparent text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              <t.Icon className="w-3.5 h-3.5" />
-              {t.label}
-            </button>
-          ))}
+
+          {/* Tabs */}
+          <div style={{ display: "flex", overflowX: "auto", scrollbarWidth: "none" }}>
+            {TABS.map(t => {
+              const active = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  style={{ display: "flex", alignItems: "center", gap: "0.375rem", padding: "0.6rem 0.875rem", cursor: "pointer", background: "transparent", border: "none", borderBottom: `2px solid ${active ? "#2dd4bf" : "transparent"}`, color: active ? "#2dd4bf" : "#334155", fontSize: "0.775rem", fontWeight: active ? 700 : 500, whiteSpace: "nowrap", transition: "all 0.15s ease" }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.color = "#64748b"; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.color = "#334155"; }}
+                >
+                  <div style={{ width: "0.825rem", height: "0.825rem" }}><t.Icon /></div>
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-6">{PANELS[tab]}</div>
+      {/* ── CONTENT ── */}
+      <div style={{ maxWidth: "48rem", margin: "0 auto", padding: "1.5rem 1rem 4rem" }}>
+        {panels[tab]}
+      </div>
 
-      <div className="border-t border-slate-800">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <span className="text-slate-700 text-xs">OMNIX Protocol v1.0.0 · Built on Solana · AI-Powered</span>
-          <span className="text-slate-700 text-xs font-mono">$OMX · Ticker live on Raydium + Jupiter</span>
+      {/* ── FOOTER ── */}
+      <div style={{ borderTop: "1px solid #0d1629", padding: "0.875rem 1rem" }}>
+        <div style={{ maxWidth: "48rem", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <img src={LOGO} alt="" style={{ width: "1.25rem", height: "1.25rem", borderRadius: "0.25rem", objectFit: "cover", opacity: 0.4 }} />
+            <span style={{ color: "#1a2744", fontSize: "0.68rem" }}>OMNIX Protocol · Built on Solana · Open Source</span>
+          </div>
+          <a href="https://github.com/Bkggreen/omnix-depin" target="_blank" rel="noopener noreferrer"
+            style={{ color: "#1a2744", fontSize: "0.68rem", transition: "color 0.15s ease" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#334155"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "#1a2744"; }}
+          >
+            GitHub →
+          </a>
         </div>
       </div>
     </div>
