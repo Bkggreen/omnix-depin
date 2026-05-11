@@ -23,7 +23,7 @@ const I = {
 const WALLETS = [
   { id:"mobile",   name:"Solana Mobile",  emoji:"📱", desc:"Saga / Chapter 2",    url:"https://solanamobile.com",   detect:()=>!!(window as any)?.solana?.isMobileWallet,                          get:()=>(window as any)?.solana },
   { id:"phantom",  name:"Phantom",        emoji:"👻", desc:"Most popular",        url:"https://phantom.app",        detect:()=>!!(window as any)?.solana?.isPhantom && !(window as any)?.solana?.isMobileWallet, get:()=>(window as any)?.solana },
-  { id:"solflare", name:"Solflare",       emoji:"☀️", desc:"Mobile & desktop",    url:"https://solflare.com",       detect:()=>!!(window as any)?.solflare?.isSolflare,                            get:()=>(window as any)?.solflare },
+  { id:"solflare", name:"Solflare",       emoji:"🌞", desc:"Mobile & desktop",    url:"https://solflare.com",       detect:()=>!!(window as any)?.solflare?.isSolflare,                            get:()=>(window as any)?.solflare },
   { id:"backpack", name:"Backpack",       emoji:"🎒", desc:"By Coral / xNFT",     url:"https://backpack.app",       detect:()=>!!(window as any)?.backpack,                                        get:()=>(window as any)?.backpack },
   { id:"glow",     name:"Glow",           emoji:"✨", desc:"iOS & Android",        url:"https://glow.app",           detect:()=>!!(window as any)?.glow,                                            get:()=>(window as any)?.glow },
   { id:"exodus",   name:"Exodus",         emoji:"🚀", desc:"Multi-chain wallet",   url:"https://exodus.com",         detect:()=>!!(window as any)?.exodus?.solana,                                  get:()=>(window as any)?.exodus?.solana },
